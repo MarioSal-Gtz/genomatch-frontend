@@ -1,0 +1,1 @@
+const fs=require("fs");fs.writeFileSync("src/pages/Login.tsx",fs.readFileSync("src/pages/Login.tsx","utf8").replace(/gradient-bg/,"min-h-screen flex items-center justify-center p-6 relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50/80 to-cyan-50/60"))
