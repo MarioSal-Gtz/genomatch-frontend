@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Users, LogOut, Search } from 'lucide-react';
+import { Users, LogOut, Search, LayoutDashboard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme, getThemeStyles } from '../context/ThemeContext';
 
@@ -134,6 +134,33 @@ export default function Navbar() {
             <p style={{ fontSize: "10px", color: theme.textMuted }}>Bienvenido</p>
           </div>
         </div>
+
+        {/* Panel de Control */}
+        <NavLink
+          to="/panel"
+          style={({ isActive }) => ({
+            width: "36px",
+            height: "36px",
+            borderRadius: "10px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: isActive
+              ? (isDark ? "rgba(140, 180, 255, 0.15)" : "rgba(70, 130, 180, 0.12)")
+              : (isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.5)"),
+            backdropFilter: "blur(12px)",
+            border: `1px solid ${isActive
+              ? (isDark ? "rgba(140, 180, 255, 0.3)" : "rgba(70, 130, 180, 0.25)")
+              : (isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(255, 255, 255, 0.6)")}`,
+            color: isActive
+              ? (isDark ? "rgba(140, 180, 255, 0.9)" : "rgba(70, 130, 180, 0.9)")
+              : theme.textMuted,
+            cursor: "pointer",
+            textDecoration: "none"
+          })}
+        >
+          <LayoutDashboard size={16} />
+        </NavLink>
 
         {/* Users Icon */}
         <NavLink
