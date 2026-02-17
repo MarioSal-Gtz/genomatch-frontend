@@ -18,7 +18,8 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const isLoginRequest = error.config?.url?.includes('/auth/login');
+    if (error.response?.status === 401 && !isLoginRequest) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
@@ -47,11 +48,11 @@ export const userService = {
     const response = await api.get(`/users/${id}`);
     return response.data;
   },
-  create: async (data: { firstName: string; lastName: string; email: string; password: string }) => {
+  create: async (data: { firstName: string; lastName: string; email: string; password: string; phone?: string; roleId?: number }) => {
     const response = await api.post('/users', data);
     return response.data;
   },
-  update: async (id: string, data: Partial<{ firstName: string; lastName: string; email: string; isActive: boolean }>) => {
+  update: async (id: string, data: Partial<{ firstName: string; lastName: string; email: string; isActive: boolean; phone: string; roleId: number }>) => {
     const response = await api.put(`/users/${id}`, data);
     return response.data;
   },

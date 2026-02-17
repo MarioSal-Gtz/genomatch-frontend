@@ -1,73 +1,103 @@
-import { useState, useEffect } from 'react';
-import { Plus, Search, Edit2, Trash2, X, Loader2, UserCheck, UserX } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import {
+  LuPlus, LuSearch, LuPencil, LuTrash2, LuX, LuLoader,
+  LuUserCheck, LuUserX, LuUsers, LuShield, LuFlaskConical,
+  LuStethoscope, LuCrown, LuEye, LuEyeOff, LuDownload,
+  LuChevronDown, LuArrowUp, LuArrowDown, LuTriangleAlert,
+} from 'react-icons/lu';
 import { userService } from '../services/api';
 import type { User } from '../types';
-import { useTheme, ThemeToggle, getThemeStyles } from '../context/ThemeContext';
+import { useTheme } from '../context/ThemeContext';
 
+// ── Roles ──────────────────────────────────────────────────────────
+const ROLES = [
+  { id: 1, name: 'Administrador', icon: LuShield, color: 'accent' as const, desc: 'Acceso total al sistema' },
+  { id: 2, name: 'Técnico', icon: LuFlaskConical, color: 'success' as const, desc: 'Operación diaria del laboratorio' },
+  { id: 3, name: 'Médico', icon: LuStethoscope, color: 'indigo' as const, desc: 'Consulta clínica y reportes' },
+  { id: 4, name: 'Root', icon: LuCrown, color: 'purple' as const, desc: 'Administración ABALAT' },
+  { id: 5, name: 'Solo lectura', icon: LuEye, color: 'slate' as const, desc: 'Solo visualización' },
+] as const;
+
+type RoleColor = typeof ROLES[number]['color'];
+
+function getRoleById(id?: number | null) {
+  return ROLES.find((r) => r.id === id) ?? null;
+}
+
+function roleColorTokens(color: RoleColor, t: ReturnType<typeof useTheme>['t']) {
+  const map: Record<RoleColor, { bg: string; fg: string }> = {
+    accent: { bg: t.accentBg, fg: t.accentText },
+    success: { bg: t.successBg, fg: t.success },
+    indigo: { bg: t.indigoBg, fg: t.indigo },
+    purple: { bg: t.purpleBg, fg: t.purple },
+    slate: { bg: t.slateBg, fg: t.slate },
+  };
+  return map[color];
+}
+
+// ── Form types ─────────────────────────────────────────────────────
 interface UserFormData {
   firstName: string;
   lastName: string;
   email: string;
   password: string;
+  phone: string;
+  roleId: number;
 }
 
-export default function Usuarios() {
-  const { isDark } = useTheme();
-  const theme = getThemeStyles(isDark);
+const emptyForm: UserFormData = { firstName: '', lastName: '', email: '', password: '', phone: '', roleId: 2 };
 
+type SortKey = 'name' | 'email' | 'role' | 'createdAt';
+type SortDir = 'asc' | 'desc';
+
+// ── CSV Export ─────────────────────────────────────────────────────
+function exportCSV(users: User[]) {
+  const header = 'Nombre,Apellido,Email,Rol,Teléfono,Estado,Creado';
+  const rows = users.map((u) => {
+    const role = getRoleById(u.roleId)?.name ?? 'Sin rol';
+    const phone = u.phone ?? '';
+    const status = u.isActive ? 'Activo' : 'Inactivo';
+    const created = new Date(u.createdAt).toLocaleDateString();
+    return [u.firstName, u.lastName, u.email, role, phone, status, created]
+      .map((v) => `"${v.replace(/"/g, '""')}"`)
+      .join(',');
+  });
+  const blob = new Blob([header + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `usuarios_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Component ──────────────────────────────────────────────────────
+export default function Usuarios() {
+  const { t } = useTheme();
+
+  // Data
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Filters
   const [search, setSearch] = useState('');
+  const [filterRole, setFilterRole] = useState<number | 0>(0);
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+
+  // Sort
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  // Modals
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [formData, setFormData] = useState<UserFormData>({ firstName: '', lastName: '', email: '', password: '' });
+  const [formData, setFormData] = useState<UserFormData>({ ...emptyForm });
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // Liquid glass card style
-  const glassCard = {
-    background: isDark ? "rgba(255, 255, 255, 0.03)" : "rgba(255, 255, 255, 0.4)",
-    backdropFilter: "blur(20px)",
-    WebkitBackdropFilter: "blur(20px)",
-    borderRadius: "20px",
-    border: `1px solid ${isDark ? "rgba(255, 255, 255, 0.06)" : "rgba(255, 255, 255, 0.6)"}`,
-    padding: "24px"
-  };
-
-  // Liquid glass button style
-  const glassButton = (isAccent = false) => ({
-    padding: "12px 20px",
-    borderRadius: "12px",
-    border: `1px solid ${isAccent
-      ? (isDark ? "rgba(140, 180, 255, 0.2)" : "rgba(70, 130, 180, 0.2)")
-      : (isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(255, 255, 255, 0.6)")}`,
-    background: isAccent
-      ? (isDark ? "rgba(140, 180, 255, 0.1)" : "rgba(70, 130, 180, 0.08)")
-      : (isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.5)"),
-    backdropFilter: "blur(12px)",
-    fontWeight: 600,
-    fontSize: "13px",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    color: isAccent
-      ? (isDark ? "rgba(140, 180, 255, 0.9)" : "rgba(70, 130, 180, 0.9)")
-      : theme.text
-  });
-
-  const inputStyle = {
-    width: "100%",
-    padding: "14px 18px",
-    borderRadius: "12px",
-    border: `1px solid ${isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)"}`,
-    background: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.5)",
-    backdropFilter: "blur(8px)",
-    color: theme.text,
-    fontSize: "14px",
-    fontWeight: 500,
-    outline: "none"
-  };
+  // Delete confirmation
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
 
   useEffect(() => { loadUsers(); }, []);
 
@@ -79,19 +109,66 @@ export default function Usuarios() {
     finally { setLoading(false); }
   };
 
+  // ── Filtered + sorted list ───────────────────────────────────────
+  const filteredUsers = useMemo(() => {
+    let list = users.filter((u) => {
+      const q = search.toLowerCase();
+      const matchSearch = !q || u.firstName.toLowerCase().includes(q) || u.lastName.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+      const matchRole = filterRole === 0 || u.roleId === filterRole;
+      const matchStatus = filterStatus === 'all' || (filterStatus === 'active' ? u.isActive : !u.isActive);
+      return matchSearch && matchRole && matchStatus;
+    });
+
+    list.sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case 'name': cmp = `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`); break;
+        case 'email': cmp = a.email.localeCompare(b.email); break;
+        case 'role': cmp = (a.roleId ?? 99) - (b.roleId ?? 99); break;
+        case 'createdAt': cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(); break;
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+
+    return list;
+  }, [users, search, filterRole, filterStatus, sortKey, sortDir]);
+
+  // ── Stats ────────────────────────────────────────────────────────
+  const totalUsers = users.length;
+  const activeUsers = users.filter((u) => u.isActive).length;
+  const roleSummary = useMemo(() => {
+    const counts: Record<number, number> = {};
+    users.forEach((u) => { if (u.roleId) counts[u.roleId] = (counts[u.roleId] || 0) + 1; });
+    return ROLES.filter((r) => counts[r.id]).map((r) => `${counts[r.id]} ${r.name.length > 5 ? r.name.slice(0, 4) + '.' : r.name}`).join(', ') || 'Sin roles';
+  }, [users]);
+
+  // ── Handlers ─────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setError('');
     try {
       if (editingUser) {
-        await userService.update(editingUser.id, { firstName: formData.firstName, lastName: formData.lastName, email: formData.email });
+        await userService.update(editingUser.id, {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone || undefined,
+          roleId: formData.roleId,
+        });
       } else {
-        await userService.create(formData);
+        await userService.create({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          password: formData.password,
+          phone: formData.phone || undefined,
+          roleId: formData.roleId,
+        });
       }
       setShowModal(false);
       setEditingUser(null);
-      setFormData({ firstName: '', lastName: '', email: '', password: '' });
+      setFormData({ ...emptyForm });
       loadUsers();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Error al guardar');
@@ -102,14 +179,24 @@ export default function Usuarios() {
 
   const handleEdit = (user: User) => {
     setEditingUser(user);
-    setFormData({ firstName: user.firstName, lastName: user.lastName, email: user.email, password: '' });
+    setFormData({
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      password: '',
+      phone: user.phone ?? '',
+      roleId: user.roleId ?? 2,
+    });
+    setError('');
+    setShowPassword(false);
     setShowModal(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Eliminar usuario?')) return;
-    try { await userService.delete(id); loadUsers(); }
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    try { await userService.delete(deleteTarget.id); loadUsers(); }
     catch (err) { console.error(err); }
+    finally { setDeleteTarget(null); }
   };
 
   const handleToggleActive = async (user: User) => {
@@ -117,343 +204,384 @@ export default function Usuarios() {
     catch (err) { console.error(err); }
   };
 
-  const filteredUsers = users.filter((u) =>
-    u.firstName.toLowerCase().includes(search.toLowerCase()) ||
-    u.lastName.toLowerCase().includes(search.toLowerCase()) ||
-    u.email.toLowerCase().includes(search.toLowerCase())
-  );
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir('asc'); }
+  };
 
   const openNewModal = () => {
     setEditingUser(null);
-    setFormData({ firstName: '', lastName: '', email: '', password: '' });
+    setFormData({ ...emptyForm });
     setError('');
+    setShowPassword(false);
     setShowModal(true);
   };
 
+  // ── Shared styles ────────────────────────────────────────────────
+  const labelStyle: React.CSSProperties = { display: 'block', fontSize: '10px', fontWeight: 700, color: t.textSubtle, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.08em' };
+  const inputStyle: React.CSSProperties = { width: '100%', padding: '12px 16px', borderRadius: '8px', border: `1px solid ${t.borderInput}`, background: t.bgInput, color: t.text, fontSize: '13px', fontWeight: 500, outline: 'none' };
+  const selectStyle: React.CSSProperties = { ...inputStyle, appearance: 'none', paddingRight: '36px', cursor: 'pointer' };
+
+  // ── Render ───────────────────────────────────────────────────────
   return (
-    <div>
-      {/* Header - Floating cards style */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px", flexWrap: "wrap", gap: "16px" }}>
-        <div style={{
-          padding: "16px 20px",
-          borderRadius: "14px",
-          background: isDark ? "rgba(255, 255, 255, 0.03)" : "rgba(255, 255, 255, 0.4)",
-          backdropFilter: "blur(12px)",
-          border: `1px solid ${isDark ? "rgba(255, 255, 255, 0.06)" : "rgba(255, 255, 255, 0.6)"}`
-        }}>
-          <h1 style={{ fontSize: "20px", fontWeight: 700, color: theme.text, marginBottom: "4px" }}>
+    <>
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4" style={{ marginBottom: '24px' }}>
+        <div>
+          <h2 className="font-bold" style={{ fontSize: '26px', letterSpacing: '-0.02em', color: t.text }}>
             Usuarios
-          </h1>
-          <p style={{ color: theme.textMuted, fontSize: "13px" }}>
+          </h2>
+          <p style={{ color: t.textMuted, fontSize: '14px', marginTop: '6px' }}>
             Gestiona los usuarios de la plataforma
           </p>
         </div>
-        <button onClick={openNewModal} style={glassButton(true)}>
-          <Plus size={16} />
-          Nuevo Usuario
-        </button>
       </div>
 
-      {/* Search & Table */}
-      <div style={glassCard}>
-        {/* Search */}
-        <div style={{ marginBottom: "20px" }}>
-          <div style={{ position: "relative", maxWidth: "350px" }}>
-            <Search
-              size={16}
-              style={{
-                position: "absolute",
-                left: "14px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: theme.textMuted
-              }}
-            />
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" style={{ marginBottom: '24px' }}>
+        {[
+          { label: 'Total Usuarios', value: totalUsers, icon: LuUsers, color: t.accentText, bg: t.accentBg },
+          { label: 'Activos', value: activeUsers, icon: LuUserCheck, color: t.success, bg: t.successBg },
+          { label: 'Por Rol', value: roleSummary, icon: LuShield, color: t.purple, bg: t.purpleBg },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            style={{
+              background: t.bgCard,
+              border: `1px solid ${t.border}`,
+              borderRadius: '14px',
+              padding: '20px 24px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '16px',
+            }}
+          >
+            <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: stat.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <stat.icon size={20} style={{ color: stat.color }} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ fontSize: '11px', fontWeight: 600, color: t.textSubtle, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{stat.label}</p>
+              <p style={{ fontSize: typeof stat.value === 'number' ? '22px' : '13px', fontWeight: 700, color: t.text, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {stat.value}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filters bar + table */}
+      <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '14px', overflow: 'hidden' }}>
+        {/* Filter row */}
+        <div style={{ padding: '16px 24px', borderBottom: `1px solid ${t.border}`, background: t.bgCardHeader, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
+          {/* Search */}
+          <div style={{ position: 'relative', minWidth: '200px', flex: '1 1 200px', maxWidth: '320px' }}>
+            <LuSearch size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: t.textFaint }} />
             <input
               type="text"
               placeholder="Buscar usuarios..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ ...inputStyle, paddingLeft: "42px" }}
+              style={{ ...inputStyle, height: '36px', paddingLeft: '36px', paddingRight: '16px', fontSize: '12px' }}
             />
           </div>
+
+          {/* Role filter */}
+          <div style={{ position: 'relative' }}>
+            <select
+              value={filterRole}
+              onChange={(e) => setFilterRole(Number(e.target.value))}
+              style={{ ...selectStyle, height: '36px', fontSize: '12px', padding: '0 32px 0 12px', minWidth: '150px' }}
+            >
+              <option value={0}>Todos los roles</option>
+              {ROLES.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+            <LuChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: t.textFaint, pointerEvents: 'none' }} />
+          </div>
+
+          {/* Status filter */}
+          <div style={{ position: 'relative' }}>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')}
+              style={{ ...selectStyle, height: '36px', fontSize: '12px', padding: '0 32px 0 12px', minWidth: '130px' }}
+            >
+              <option value="all">Todo estado</option>
+              <option value="active">Activo</option>
+              <option value="inactive">Inactivo</option>
+            </select>
+            <LuChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: t.textFaint, pointerEvents: 'none' }} />
+          </div>
+
+          <div style={{ flex: '1 1 0', minWidth: '0' }} />
+
+          {/* Export CSV */}
+          <button
+            onClick={() => exportCSV(filteredUsers)}
+            style={{ height: '36px', padding: '0 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, background: t.bgInput, border: `1px solid ${t.borderInput}`, color: t.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <LuDownload size={14} />
+            Exportar
+          </button>
+
+          {/* New user */}
+          <button
+            onClick={openNewModal}
+            style={{ height: '36px', padding: '0 16px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, background: t.accent, border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: t.accentShadow }}
+          >
+            <LuPlus size={14} />
+            Nuevo Usuario
+          </button>
         </div>
 
         {/* Table */}
         {loading ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "60px" }}>
-            <Loader2 size={28} style={{ animation: "spin 1s linear infinite", color: isDark ? "rgba(140, 180, 255, 0.7)" : "rgba(70, 130, 180, 0.7)" }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px' }}>
+            <LuLoader size={28} style={{ animation: 'spin 1s linear infinite', color: t.accentText }} />
           </div>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ borderBottom: `1px solid ${isDark ? "rgba(255, 255, 255, 0.06)" : "rgba(0, 0, 0, 0.06)"}` }}>
-                {['Usuario', 'Email', 'Estado', 'Creado', 'Acciones'].map((header, i) => (
-                  <th
-                    key={header}
-                    style={{
-                      textAlign: i === 4 ? "right" : "left",
-                      padding: "12px 14px",
-                      fontSize: "11px",
-                      fontWeight: 700,
-                      color: theme.textMuted,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px"
-                    }}
-                  >
-                    {header}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.length === 0 ? (
-                <tr>
-                  <td colSpan={5} style={{ textAlign: "center", padding: "48px", color: theme.textMuted }}>
-                    No se encontraron usuarios
-                  </td>
+          <div className="overflow-auto">
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${t.border}` }}>
+                  {([
+                    { label: 'Usuario', key: 'name' as SortKey },
+                    { label: 'Email', key: 'email' as SortKey },
+                    { label: 'Rol', key: 'role' as SortKey },
+                    { label: 'Teléfono', key: null },
+                    { label: 'Estado', key: null },
+                    { label: 'Último acceso', key: null },
+                    { label: 'Acciones', key: null },
+                  ]).map((col, i) => (
+                    <th
+                      key={col.label}
+                      onClick={col.key ? () => toggleSort(col.key!) : undefined}
+                      style={{
+                        textAlign: i === 6 ? 'right' : 'left',
+                        padding: '14px 24px',
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        color: t.textSubtle,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                        cursor: col.key ? 'pointer' : 'default',
+                        userSelect: 'none',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        {col.label}
+                        {col.key && sortKey === col.key && (
+                          sortDir === 'asc' ? <LuArrowUp size={11} /> : <LuArrowDown size={11} />
+                        )}
+                      </span>
+                    </th>
+                  ))}
                 </tr>
-              ) : (
-                filteredUsers.map((user) => (
-                  <tr key={user.id} style={{ borderBottom: `1px solid ${isDark ? "rgba(255, 255, 255, 0.03)" : "rgba(0, 0, 0, 0.04)"}` }}>
-                    <td style={{ padding: "14px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                        <div
-                          style={{
-                            width: "36px",
-                            height: "36px",
-                            borderRadius: "10px",
-                            background: isDark ? "rgba(140, 180, 255, 0.15)" : "rgba(70, 130, 180, 0.1)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: isDark ? "rgba(140, 180, 255, 0.9)" : "rgba(70, 130, 180, 0.9)",
-                            fontWeight: 600,
-                            fontSize: "13px"
-                          }}
-                        >
-                          {user.firstName.charAt(0)}
-                        </div>
-                        <span style={{ fontWeight: 600, color: theme.text, fontSize: "13px" }}>
-                          {user.firstName} {user.lastName}
-                        </span>
-                      </div>
-                    </td>
-                    <td style={{ padding: "14px", color: theme.textMuted, fontSize: "13px" }}>
-                      {user.email}
-                    </td>
-                    <td style={{ padding: "14px" }}>
-                      <button
-                        onClick={() => handleToggleActive(user)}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "6px",
-                          padding: "6px 12px",
-                          borderRadius: "8px",
-                          border: `1px solid ${user.isActive
-                            ? (isDark ? "rgba(100, 180, 150, 0.25)" : "rgba(100, 180, 150, 0.3)")
-                            : (isDark ? "rgba(200, 120, 120, 0.25)" : "rgba(200, 120, 120, 0.3)")}`,
-                          fontSize: "11px",
-                          fontWeight: 600,
-                          cursor: "pointer",
-                          background: user.isActive
-                            ? (isDark ? "rgba(100, 180, 150, 0.1)" : "rgba(100, 180, 150, 0.08)")
-                            : (isDark ? "rgba(200, 120, 120, 0.1)" : "rgba(200, 120, 120, 0.08)"),
-                          color: user.isActive
-                            ? (isDark ? "rgba(150, 220, 180, 0.9)" : "rgba(60, 140, 100, 0.9)")
-                            : (isDark ? "rgba(240, 150, 150, 0.9)" : "rgba(180, 80, 80, 0.9)")
-                        }}
-                      >
-                        {user.isActive ? <UserCheck size={12} /> : <UserX size={12} />}
-                        {user.isActive ? 'Activo' : 'Inactivo'}
-                      </button>
-                    </td>
-                    <td style={{ padding: "14px", color: theme.textMuted, fontSize: "12px" }}>
-                      {new Date(user.createdAt).toLocaleDateString()}
-                    </td>
-                    <td style={{ padding: "14px" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "8px" }}>
-                        <button
-                          onClick={() => handleEdit(user)}
-                          style={{
-                            padding: "8px",
-                            borderRadius: "8px",
-                            border: `1px solid ${isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)"}`,
-                            background: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.5)",
-                            backdropFilter: "blur(8px)",
-                            color: theme.textMuted,
-                            cursor: "pointer"
-                          }}
-                        >
-                          <Edit2 size={14} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(user.id)}
-                          style={{
-                            padding: "8px",
-                            borderRadius: "8px",
-                            border: `1px solid ${isDark ? "rgba(200, 120, 120, 0.2)" : "rgba(200, 120, 120, 0.2)"}`,
-                            background: isDark ? "rgba(200, 120, 120, 0.1)" : "rgba(200, 120, 120, 0.08)",
-                            backdropFilter: "blur(8px)",
-                            color: isDark ? "rgba(240, 150, 150, 0.9)" : "rgba(180, 80, 80, 0.9)",
-                            cursor: "pointer"
-                          }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
+              </thead>
+              <tbody>
+                {filteredUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: '48px', color: t.textSubtle }}>
+                      No se encontraron usuarios
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  filteredUsers.map((user, index) => {
+                    const role = getRoleById(user.roleId);
+                    const colors = role ? roleColorTokens(role.color, t) : null;
+                    return (
+                      <tr key={user.id} style={{ borderBottom: index !== filteredUsers.length - 1 ? `1px solid ${t.borderLight}` : 'none' }}>
+                        {/* Name */}
+                        <td style={{ padding: '14px 24px' }}>
+                          <div className="flex items-center" style={{ gap: '12px' }}>
+                            <div className="flex items-center justify-center shrink-0" style={{ width: '34px', height: '34px', borderRadius: '50%', fontSize: '11px', fontWeight: 700, background: t.accentBg, color: t.accentText }}>
+                              {user.firstName.charAt(0)}{user.lastName.charAt(0)}
+                            </div>
+                            <p style={{ fontSize: '13px', fontWeight: 600, color: t.textSecondary, lineHeight: 1 }}>
+                              {user.firstName} {user.lastName}
+                            </p>
+                          </div>
+                        </td>
+
+                        {/* Email */}
+                        <td style={{ padding: '14px 24px', fontSize: '13px', color: t.textMuted }}>{user.email}</td>
+
+                        {/* Role badge */}
+                        <td style={{ padding: '14px 24px' }}>
+                          {role && colors ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, background: colors.bg, color: colors.fg }}>
+                              <role.icon size={12} />
+                              {role.name}
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '11px', color: t.textSubtle }}>—</span>
+                          )}
+                        </td>
+
+                        {/* Phone */}
+                        <td style={{ padding: '14px 24px', fontSize: '13px', color: t.textMuted }}>
+                          {user.phone || <span style={{ color: t.textSubtle }}>—</span>}
+                        </td>
+
+                        {/* Status */}
+                        <td style={{ padding: '14px 24px' }}>
+                          <button
+                            onClick={() => handleToggleActive(user)}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '6px', border: 'none', fontSize: '11px', fontWeight: 600, cursor: 'pointer',
+                              background: user.isActive ? t.successBg : t.dangerBg,
+                              color: user.isActive ? t.success : t.danger,
+                            }}
+                          >
+                            {user.isActive ? <LuUserCheck size={12} /> : <LuUserX size={12} />}
+                            {user.isActive ? 'Activo' : 'Inactivo'}
+                          </button>
+                        </td>
+
+                        {/* Last login */}
+                        <td style={{ padding: '14px 24px', fontSize: '12px', color: t.textSubtle, fontVariantNumeric: 'tabular-nums' }}>
+                          {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : 'Nunca'}
+                        </td>
+
+                        {/* Actions */}
+                        <td style={{ padding: '14px 24px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                            <button onClick={() => handleEdit(user)} style={{ padding: '7px', borderRadius: '6px', border: `1px solid ${t.borderInput}`, background: t.bgInput, color: t.textMuted, cursor: 'pointer' }}>
+                              <LuPencil size={14} />
+                            </button>
+                            <button onClick={() => setDeleteTarget(user)} style={{ padding: '7px', borderRadius: '6px', border: `1px solid ${t.dangerBorder}`, background: t.dangerBg, color: t.danger, cursor: 'pointer' }}>
+                              <LuTrash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
-      {/* Modal - Liquid Glass */}
+      {/* ── Create / Edit Modal ──────────────────────────────────── */}
       {showModal && (
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: isDark ? "rgba(0, 0, 0, 0.4)" : "rgba(0, 0, 0, 0.2)",
-            backdropFilter: "blur(8px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-            padding: "20px"
-          }}
+          style={{ position: 'fixed', inset: 0, background: t.bgOverlay, backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}
+          onClick={() => setShowModal(false)}
         >
           <div
-            style={{
-              background: isDark ? "rgba(30, 30, 50, 0.8)" : "rgba(255, 255, 255, 0.7)",
-              backdropFilter: "blur(24px)",
-              WebkitBackdropFilter: "blur(24px)",
-              borderRadius: "24px",
-              padding: "28px",
-              width: "100%",
-              maxWidth: "420px",
-              border: `1px solid ${isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(255, 255, 255, 0.6)"}`
-            }}
+            style={{ background: t.bgModal, backdropFilter: 'blur(24px)', borderRadius: '20px', padding: '28px', width: '100%', maxWidth: '520px', border: `1px solid ${t.borderInput}`, maxHeight: '90vh', overflowY: 'auto' }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
-              <h2 style={{ fontSize: "18px", fontWeight: 700, color: theme.text }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, color: t.text }}>
                 {editingUser ? 'Editar Usuario' : 'Nuevo Usuario'}
               </h2>
-              <button
-                onClick={() => setShowModal(false)}
-                style={{
-                  padding: "8px",
-                  borderRadius: "8px",
-                  border: `1px solid ${isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)"}`,
-                  background: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.5)",
-                  color: theme.textMuted,
-                  cursor: "pointer"
-                }}
-              >
-                <X size={16} />
+              <button onClick={() => setShowModal(false)} style={{ padding: '8px', borderRadius: '8px', border: `1px solid ${t.borderInput}`, background: t.bgInput, color: t.textMuted, cursor: 'pointer' }}>
+                <LuX size={16} />
               </button>
             </div>
 
             <form onSubmit={handleSubmit}>
               {error && (
-                <div
-                  style={{
-                    background: isDark ? "rgba(200, 120, 120, 0.1)" : "rgba(200, 120, 120, 0.08)",
-                    border: `1px solid ${isDark ? "rgba(200, 120, 120, 0.2)" : "rgba(200, 120, 120, 0.2)"}`,
-                    color: isDark ? "rgba(240, 150, 150, 0.9)" : "rgba(180, 80, 80, 0.9)",
-                    padding: "12px 16px",
-                    borderRadius: "12px",
-                    fontSize: "13px",
-                    marginBottom: "20px"
-                  }}
-                >
+                <div style={{ background: t.dangerBg, border: `1px solid ${t.dangerBorder}`, color: t.danger, padding: '12px 16px', borderRadius: '10px', fontSize: '13px', marginBottom: '20px' }}>
                   {error}
                 </div>
               )}
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                <div>
-                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: theme.textMuted, marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                    Nombre
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.firstName}
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                    style={inputStyle}
-                    required
-                  />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {/* Row 1: Nombre + Apellido */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>Nombre</label>
+                    <input type="text" value={formData.firstName} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} style={inputStyle} required />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Apellido</label>
+                    <input type="text" value={formData.lastName} onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} style={inputStyle} required />
+                  </div>
                 </div>
 
+                {/* Row 2: Email */}
                 <div>
-                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: theme.textMuted, marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                    Apellido
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.lastName}
-                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                    style={inputStyle}
-                    required
-                  />
+                  <label style={labelStyle}>Email</label>
+                  <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} style={inputStyle} required />
                 </div>
 
+                {/* Row 3: Teléfono */}
                 <div>
-                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: theme.textMuted, marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    style={inputStyle}
-                    required
-                  />
+                  <label style={labelStyle}>Teléfono</label>
+                  <input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} style={inputStyle} placeholder="Opcional" />
                 </div>
 
+                {/* Row 4: Contraseña (solo crear) */}
                 {!editingUser && (
                   <div>
-                    <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: theme.textMuted, marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                      Contrasena
-                    </label>
-                    <input
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      style={inputStyle}
-                      required
-                    />
+                    <label style={labelStyle}>Contraseña</label>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        style={{ ...inputStyle, paddingRight: '44px' }}
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', padding: '6px', background: 'none', border: 'none', color: t.textSubtle, cursor: 'pointer' }}
+                      >
+                        {showPassword ? <LuEyeOff size={16} /> : <LuEye size={16} />}
+                      </button>
+                    </div>
                   </div>
                 )}
 
-                <div style={{ display: "flex", gap: "12px", marginTop: "8px" }}>
-                  <button
-                    type="button"
-                    onClick={() => setShowModal(false)}
-                    style={{
-                      ...glassButton(),
-                      flex: 1,
-                      justifyContent: "center"
-                    }}
-                  >
+                {/* Row 5: Role selector */}
+                <div>
+                  <label style={labelStyle}>Rol</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '8px' }}>
+                    {ROLES.map((role) => {
+                      const selected = formData.roleId === role.id;
+                      const colors = roleColorTokens(role.color, t);
+                      return (
+                        <button
+                          key={role.id}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, roleId: role.id })}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '10px 12px',
+                            borderRadius: '10px',
+                            border: `2px solid ${selected ? colors.fg : t.borderInput}`,
+                            background: selected ? colors.bg : t.bgInput,
+                            color: selected ? colors.fg : t.textMuted,
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            transition: 'all 0.15s',
+                          }}
+                        >
+                          <role.icon size={16} />
+                          <div style={{ minWidth: 0 }}>
+                            <p style={{ fontSize: '12px', fontWeight: 600, lineHeight: 1.2 }}>{role.name}</p>
+                            <p style={{ fontSize: '10px', opacity: 0.7, lineHeight: 1.2, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{role.desc}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Buttons */}
+                <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                  <button type="button" onClick={() => setShowModal(false)} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: `1px solid ${t.borderInput}`, background: t.bgInput, color: t.textMuted, fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>
                     Cancelar
                   </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    style={{
-                      ...glassButton(true),
-                      flex: 1,
-                      justifyContent: "center",
-                      opacity: submitting ? 0.6 : 1,
-                      cursor: submitting ? "not-allowed" : "pointer"
-                    }}
-                  >
-                    {submitting ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : (editingUser ? 'Guardar' : 'Crear')}
+                  <button type="submit" disabled={submitting} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', background: t.accent, color: 'white', fontWeight: 600, fontSize: '13px', cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.6 : 1, boxShadow: t.accentShadow }}>
+                    {submitting ? <LuLoader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : (editingUser ? 'Guardar' : 'Crear')}
                   </button>
                 </div>
               </div>
@@ -462,17 +590,44 @@ export default function Usuarios() {
         </div>
       )}
 
-      <ThemeToggle />
+      {/* ── Delete Confirmation Modal ────────────────────────────── */}
+      {deleteTarget && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: t.bgOverlay, backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}
+          onClick={() => setDeleteTarget(null)}
+        >
+          <div
+            style={{ background: t.bgModal, backdropFilter: 'blur(24px)', borderRadius: '20px', padding: '28px', width: '100%', maxWidth: '400px', border: `1px solid ${t.borderInput}`, textAlign: 'center' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: t.dangerBg, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <LuTriangleAlert size={24} style={{ color: t.danger }} />
+            </div>
+            <h3 style={{ fontSize: '17px', fontWeight: 700, color: t.text, marginBottom: '8px' }}>Eliminar usuario</h3>
+            <p style={{ fontSize: '13px', color: t.textMuted, marginBottom: '24px' }}>
+              Se eliminará permanentemente a <strong style={{ color: t.text }}>{deleteTarget.firstName} {deleteTarget.lastName}</strong>. Esta acción no se puede deshacer.
+            </p>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button onClick={() => setDeleteTarget(null)} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: `1px solid ${t.borderInput}`, background: t.bgInput, color: t.textMuted, fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>
+                Cancelar
+              </button>
+              <button onClick={handleDeleteConfirm} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', background: t.danger, color: 'white', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
-        input:focus {
-          border-color: ${isDark ? "rgba(140, 180, 255, 0.3)" : "rgba(70, 130, 180, 0.3)"} !important;
-        }
+        input::placeholder { color: ${t.placeholder}; }
+        input:focus { border-color: ${t.inputFocus} !important; }
+        select:focus { border-color: ${t.inputFocus} !important; outline: none; }
       `}</style>
-    </div>
+    </>
   );
 }
