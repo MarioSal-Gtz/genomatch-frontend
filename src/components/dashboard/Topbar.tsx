@@ -1,39 +1,201 @@
-import { Bell, Search, ChevronRight, HelpCircle } from 'lucide-react';
+import { useLocation, Link } from 'react-router-dom';
+import { LuBell, LuSearch, LuChevronRight, LuCircleHelp, LuSun, LuMoon, LuDna } from 'react-icons/lu';
+import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
+
+const routeNames: Record<string, string> = {
+  '/dashboard': 'Dashboard',
+  '/busqueda': 'Búsqueda y Match',
+  '/expedientes': 'Expedientes',
+  '/reportes': 'Reportes',
+  '/usuarios': 'Usuarios y Permisos',
+  '/devyser': 'Integración Devyser',
+  '/configuracion': 'Configuración',
+};
 
 export const DashboardTopbar = () => {
+  const location = useLocation();
+  const { isDark, toggleTheme, t } = useTheme();
+  const { user } = useAuth();
+  const currentName = routeNames[location.pathname] || 'Dashboard';
+
+  const userName = user ? `${user.firstName} ${user.lastName}` : 'Usuario';
+  const initials = user
+    ? `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase()
+    : 'U';
+
   return (
-    <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-10">
-      <div className="flex items-center gap-4 text-sm text-slate-500">
-        <span className="hover:text-blue-600 cursor-pointer transition-colors">Inicio</span>
-        <ChevronRight className="w-4 h-4 text-slate-300" />
-        <span className="text-slate-900 font-medium">Panel de Control</span>
+    <header
+      className="flex items-center justify-between sticky top-0 z-10"
+      style={{
+        height: '56px',
+        padding: '0 28px',
+        background: t.bgTopbar,
+        backdropFilter: 'blur(16px)',
+        borderBottom: `1px solid ${t.border}`,
+      }}
+    >
+      {/* Left: Logo + Breadcrumbs */}
+      <div className="flex items-center" style={{ gap: '16px' }}>
+        {/* Institutional Logo */}
+        <div className="flex items-center" style={{ gap: '8px', paddingRight: '16px', borderRight: `1px solid ${t.border}` }}>
+          <LuDna size={16} color={t.accent} />
+          <span style={{ fontSize: '11px', fontWeight: 700, color: t.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            ABALAT
+          </span>
+        </div>
+
+        {/* Breadcrumbs */}
+        <div className="flex items-center" style={{ gap: '10px', fontSize: '13px' }}>
+          <Link
+            to="/dashboard"
+            className="cursor-pointer"
+            style={{ color: t.textMuted, textDecoration: 'none' }}
+          >
+            Inicio
+          </Link>
+          <LuChevronRight size={14} color={t.textFaint} />
+          <span className="font-medium" style={{ color: t.text }}>{currentName}</span>
+        </div>
       </div>
 
-      <div className="flex items-center gap-6">
-        <div className="relative group">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+      {/* Right Section */}
+      <div className="flex items-center" style={{ gap: '16px' }}>
+        {/* Search */}
+        <div className="relative">
+          <LuSearch
+            size={15}
+            style={{
+              position: 'absolute',
+              left: '12px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: t.textFaint,
+            }}
+          />
           <input
             type="text"
             placeholder="Buscar muestras, donantes..."
-            className="pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-full text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all"
+            style={{
+              paddingLeft: '36px',
+              paddingRight: '16px',
+              height: '34px',
+              width: '240px',
+              borderRadius: '20px',
+              fontSize: '12px',
+              background: t.bgInput,
+              border: `1px solid ${t.borderInput}`,
+              color: t.text,
+              outline: 'none',
+            }}
           />
         </div>
 
-        <div className="flex items-center gap-2 border-l border-slate-200 pl-6">
-          <button className="p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors relative">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
+        {/* Divider + Icons + Profile */}
+        <div
+          className="flex items-center"
+          style={{
+            gap: '6px',
+            paddingLeft: '16px',
+            borderLeft: `1px solid ${t.borderInput}`,
+          }}
+        >
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            className="flex items-center justify-center"
+            title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+            style={{
+              width: '34px',
+              height: '34px',
+              borderRadius: '50%',
+              color: t.textMuted,
+              cursor: 'pointer',
+              background: 'transparent',
+              border: 'none',
+            }}
+          >
+            {isDark ? <LuSun size={17} /> : <LuMoon size={17} />}
           </button>
-          <button className="p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
-            <HelpCircle className="w-5 h-5" />
+
+          {/* Bell */}
+          <button
+            className="flex items-center justify-center relative"
+            style={{
+              width: '34px',
+              height: '34px',
+              borderRadius: '50%',
+              color: t.textMuted,
+            }}
+          >
+            <LuBell size={17} />
+            <span
+              style={{
+                position: 'absolute',
+                top: '7px',
+                right: '8px',
+                width: '7px',
+                height: '7px',
+                background: t.bellDot,
+                borderRadius: '50%',
+                border: `2px solid ${t.bellDotBorder}`,
+              }}
+            />
           </button>
-          <div className="flex items-center gap-3 ml-2 pl-4 border-l border-slate-100 cursor-pointer hover:bg-slate-50 p-1.5 rounded-lg transition-colors group">
+
+          {/* Help */}
+          <button
+            className="flex items-center justify-center"
+            style={{
+              width: '34px',
+              height: '34px',
+              borderRadius: '50%',
+              color: t.textMuted,
+            }}
+          >
+            <LuCircleHelp size={17} />
+          </button>
+
+          {/* Profile */}
+          <div
+            className="flex items-center cursor-pointer"
+            style={{
+              gap: '10px',
+              marginLeft: '8px',
+              paddingLeft: '14px',
+              borderLeft: `1px solid ${t.border}`,
+            }}
+          >
             <div className="text-right">
-              <p className="text-sm font-semibold text-slate-900 leading-none">Dr. Alejandro Vivas</p>
-              <p className="text-[11px] text-slate-500 mt-1 uppercase tracking-wider font-medium">Administrador Nivel 3</p>
+              <p className="font-semibold leading-none" style={{ fontSize: '12px', color: t.text }}>
+                {userName}
+              </p>
+              <p
+                style={{
+                  fontSize: '10px',
+                  color: t.textSubtle,
+                  marginTop: '3px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  fontWeight: 500,
+                }}
+              >
+                Administrador
+              </p>
             </div>
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold border-2 border-blue-200 group-hover:border-blue-400 transition-colors">
-              AV
+            <div
+              className="flex items-center justify-center font-bold shrink-0"
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                background: t.avatarBg,
+                color: t.avatarText,
+                fontSize: '12px',
+                border: `2px solid ${t.avatarBorder}`,
+              }}
+            >
+              {initials}
             </div>
           </div>
         </div>

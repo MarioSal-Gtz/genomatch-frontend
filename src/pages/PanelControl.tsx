@@ -1,83 +1,110 @@
-import { DashboardSidebar } from '../components/dashboard/Sidebar';
-import { DashboardTopbar } from '../components/dashboard/Topbar';
 import { DashboardKPIs } from '../components/dashboard/DashboardKPIs';
-import { FrequentSearches, StaffPerformance } from '../components/dashboard/DashboardTables';
-import { QuickActions, RecentActivity, GeographicDistribution } from '../components/dashboard/DashboardWidgets';
-import { Info } from 'lucide-react';
+import { QuickActions, RecentActivity } from '../components/dashboard/DashboardWidgets';
+import { AlertsSummary } from '../components/dashboard/AlertsSummary';
+import { SystemStatus } from '../components/dashboard/SystemStatus';
+import { LuInfo } from 'react-icons/lu';
+import { useTheme } from '../context/ThemeContext';
 
 export default function PanelControl() {
+  const { t } = useTheme();
+
   return (
-    <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
-      {/* Sidebar Navigation */}
-      <DashboardSidebar />
-
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Topbar with Breadcrumbs and Profile */}
-        <DashboardTopbar />
-
-        <main className="flex-1 p-8 overflow-y-auto">
-          {/* Header Section */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Panel de Control</h2>
-              <p className="text-slate-500 mt-1 flex items-center gap-2">
-                Resumen general del banco de sangre molecular
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-bold rounded uppercase tracking-wider border border-blue-100">
-                  <Info className="w-3 h-3" /> Sistema Nacional Sincronizado
-                </span>
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors shadow-sm">
-                Exportar Dashboard
-              </button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm shadow-blue-600/20">
-                Nuevo Análisis
-              </button>
-            </div>
-          </div>
-
-          {/* KPI Grid */}
-          <section className="mb-8">
-            <DashboardKPIs />
-          </section>
-
-          {/* Main Content Grid */}
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-            {/* Left Column: Tables */}
-            <div className="xl:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FrequentSearches />
-              <StaffPerformance />
-              <div className="md:col-span-2">
-                <GeographicDistribution />
-              </div>
-            </div>
-
-            {/* Right Column: Widgets */}
-            <div className="flex flex-col gap-6">
-              <QuickActions />
-              <RecentActivity />
-            </div>
-          </div>
-
-          {/* Footer Audit Info */}
-          <footer className="mt-8 pt-6 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-6 text-[11px] text-slate-400 font-medium uppercase tracking-widest">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span>Estado del Servidor: Óptimo</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-blue-500" />
-                <span>Sincronización: Activa (Hace 2m)</span>
-              </div>
-            </div>
-            <p className="text-[11px] text-slate-400 font-medium italic">
-              ID de Sesión: RBC-MATCH-8821-X992 • Nivel de Autorización: Administrador Maestro
-            </p>
-          </footer>
-        </main>
+    <>
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4" style={{ marginBottom: '32px' }}>
+        <div>
+          <h2 className="font-bold" style={{ fontSize: '26px', letterSpacing: '-0.02em', color: t.text }}>
+            Dashboard
+          </h2>
+          <p className="flex items-center gap-3" style={{ color: t.textMuted, fontSize: '14px', marginTop: '6px' }}>
+            Resumen general del banco de sangre molecular
+            <span
+              className="inline-flex items-center gap-1.5"
+              style={{
+                padding: '3px 10px',
+                fontSize: '10px',
+                fontWeight: 700,
+                borderRadius: '4px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                background: t.accentBg,
+                color: t.accentText,
+                border: `1px solid ${t.accentBorder}`,
+              }}
+            >
+              <LuInfo size={12} /> Sistema Nacional Sincronizado
+            </span>
+          </p>
+        </div>
+        <div className="flex items-center" style={{ gap: '12px' }}>
+          <button
+            style={{
+              padding: '10px 20px',
+              borderRadius: '10px',
+              fontSize: '13px',
+              fontWeight: 600,
+              background: t.bgHover,
+              border: `1px solid ${t.borderInput}`,
+              color: t.textMuted,
+              cursor: 'pointer',
+            }}
+          >
+            Exportar Dashboard
+          </button>
+          <button
+            style={{
+              padding: '10px 20px',
+              borderRadius: '10px',
+              fontSize: '13px',
+              fontWeight: 600,
+              background: t.accent,
+              border: 'none',
+              color: 'white',
+              cursor: 'pointer',
+              boxShadow: t.accentShadow,
+            }}
+          >
+            Nuevo Análisis
+          </button>
+        </div>
       </div>
-    </div>
+
+      {/* KPIs */}
+      <section style={{ marginBottom: '32px' }}>
+        <DashboardKPIs />
+      </section>
+
+      {/* Alerts + Activity */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+        <AlertsSummary />
+        <RecentActivity />
+      </div>
+
+      {/* QuickActions + SystemStatus */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+        <QuickActions />
+        <SystemStatus />
+      </div>
+
+      {/* Footer */}
+      <footer
+        className="flex flex-col md:flex-row justify-between items-center"
+        style={{ marginTop: '32px', paddingTop: '24px', borderTop: `1px solid ${t.border}`, gap: '16px' }}
+      >
+        <div className="flex items-center" style={{ gap: '28px', fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.1em', color: t.textFaint }}>
+          <div className="flex items-center" style={{ gap: '8px' }}>
+            <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: t.successDot }} />
+            <span>Estado del Servidor: Óptimo</span>
+          </div>
+          <div className="flex items-center" style={{ gap: '8px' }}>
+            <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: t.syncDot }} />
+            <span>Sincronización: Activa (Hace 2m)</span>
+          </div>
+        </div>
+        <p style={{ fontSize: '11px', color: t.textFaint, fontWeight: 500, fontStyle: 'italic' }}>
+          ID de Sesión: RBC-MATCH-8821-X992
+        </p>
+      </footer>
+    </>
   );
 }

@@ -1,73 +1,146 @@
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  Search,
-  Dna,
-  Box,
-  ShieldCheck,
-  Map as MapIcon,
-  Users,
-  FileText,
-  CheckSquare,
-  Database,
-  LogOut,
-  Settings
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+  LuLayoutDashboard,
+  LuSearch,
+  LuFolderOpen,
+  LuFileChartColumn,
+  LuUsers,
+  LuMicroscope,
+  LuSettings,
+  LuLogOut,
+  LuDna,
+} from 'react-icons/lu';
+import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', active: true },
-  { icon: Search, label: 'Búsqueda de Muestras' },
-  { icon: Dna, label: 'Genotipos' },
-  { icon: Box, label: 'Inventario' },
-  { icon: ShieldCheck, label: 'Compatibilidad' },
-  { icon: MapIcon, label: 'Mapa' },
-  { icon: Users, label: 'Donantes' },
-  { icon: FileText, label: 'Reportes' },
-  { icon: CheckSquare, label: 'Tareas' },
-  { icon: Database, label: 'Sistema Nacional' },
+  { icon: LuLayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+  { icon: LuSearch, label: 'Búsqueda y Match', path: '/busqueda' },
+  { icon: LuFolderOpen, label: 'Expedientes', path: '/expedientes' },
+  { icon: LuFileChartColumn, label: 'Reportes', path: '/reportes' },
+  { icon: LuUsers, label: 'Usuarios y Permisos', path: '/usuarios' },
+  { icon: LuMicroscope, label: 'Integración Devyser', path: '/devyser' },
+  { icon: LuSettings, label: 'Configuración', path: '/configuracion' },
 ];
 
 export const DashboardSidebar = () => {
+  const { logout } = useAuth();
+  const { t } = useTheme();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
   return (
-    <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col h-screen sticky top-0 border-r border-slate-800">
-      <div className="p-6 flex items-center gap-3 border-b border-slate-800">
-        <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
-          <Dna className="text-white w-5 h-5" />
+    <aside
+      className="flex flex-col h-screen sticky top-0 shrink-0"
+      style={{
+        width: '240px',
+        background: t.bgSidebar,
+        borderRight: `1px solid ${t.border}`,
+      }}
+    >
+      {/* Logo */}
+      <div
+        className="flex items-center gap-3"
+        style={{
+          padding: '20px 24px',
+          borderBottom: `1px solid ${t.border}`,
+        }}
+      >
+        <div
+          className="flex items-center justify-center shrink-0"
+          style={{
+            width: '34px',
+            height: '34px',
+            background: t.accent,
+            borderRadius: '8px',
+          }}
+        >
+          <LuDna size={18} color="white" />
         </div>
         <div>
-          <h1 className="text-white font-bold text-sm tracking-tight leading-none">RBC-GENOmatch</h1>
-          <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">Molecular Blood Bank</span>
+          <h1 className="font-bold leading-none" style={{ fontSize: '13px', letterSpacing: '-0.01em', color: t.text }}>
+            RBC-GENOmatch
+          </h1>
+          <span
+            style={{
+              fontSize: '9px',
+              color: t.textSubtle,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              fontWeight: 600,
+            }}
+          >
+            Molecular Blood Bank
+          </span>
         </div>
       </div>
 
-      <nav className="flex-1 px-3 py-6 space-y-1">
-        {navItems.map((item, index) => (
-          <button
-            key={index}
-            className={cn(
-              "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors group",
-              item.active
-                ? "bg-blue-600/10 text-blue-400 font-medium"
-                : "hover:bg-slate-800 hover:text-white"
-            )}
-          >
-            <item.icon className={cn(
-              "w-4 h-4 transition-colors",
-              item.active ? "text-blue-400" : "text-slate-500 group-hover:text-white"
-            )} />
-            <span>{item.label}</span>
-            {item.active && <div className="ml-auto w-1 h-4 bg-blue-400 rounded-full" />}
-          </button>
-        ))}
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto" style={{ padding: '16px 12px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          {navItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className="w-full flex items-center transition-colors"
+              style={({ isActive }) => ({
+                gap: '10px',
+                padding: '9px 12px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                background: isActive ? t.navActive : 'transparent',
+                color: isActive ? t.accentLight : t.navText,
+                fontWeight: isActive ? 500 : 400,
+                position: 'relative',
+                textDecoration: 'none',
+              })}
+            >
+              {({ isActive }) => (
+                <>
+                  <item.icon
+                    size={16}
+                    style={{
+                      color: isActive ? t.accentLight : t.navIcon,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span>{item.label}</span>
+                  {isActive && (
+                    <div
+                      style={{
+                        marginLeft: 'auto',
+                        width: '3px',
+                        height: '16px',
+                        borderRadius: '2px',
+                        background: t.accentLight,
+                      }}
+                    />
+                  )}
+                </>
+              )}
+            </NavLink>
+          ))}
+        </div>
       </nav>
 
-      <div className="p-4 border-t border-slate-800 space-y-1">
-        <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors">
-          <Settings className="w-4 h-4" />
-          <span>Configuración</span>
-        </button>
-        <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:bg-red-400/10 rounded-md transition-colors">
-          <LogOut className="w-4 h-4" />
+      {/* Bottom Actions */}
+      <div style={{ padding: '12px', borderTop: `1px solid ${t.border}` }}>
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center transition-colors"
+          style={{
+            gap: '10px',
+            padding: '9px 12px',
+            borderRadius: '8px',
+            fontSize: '13px',
+            color: t.dangerText,
+          }}
+        >
+          <LuLogOut size={16} />
           <span>Cerrar Sesión</span>
         </button>
       </div>

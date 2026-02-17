@@ -1,68 +1,211 @@
-import type React from 'react';
 import {
-  Dna,
-  FlaskConical,
-  ShieldCheck,
-  Target,
-  Activity,
-  Search,
-  Users,
-  UserCheck,
-  ArrowUpRight,
-  ArrowDownRight
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+  LuTarget,
+  LuActivity,
+  LuTriangleAlert,
+  LuFlaskConical,
+  LuChartBar,
+  LuMicroscope,
+  LuArrowUpRight,
+  LuArrowDownRight,
+} from 'react-icons/lu';
+import { useNavigate } from 'react-router-dom';
+import { useTheme } from '../../context/ThemeContext';
+import type { IconType } from 'react-icons';
+
+interface SubMetric {
+  label: string;
+  value: string;
+}
 
 interface KPICardProps {
   label: string;
-  value: string | number;
-  trend?: {
-    value: number;
-    isUp: boolean;
-  };
-  icon: React.ElementType;
-  iconColor: string;
+  value: string;
+  trend: { value: number; isUp: boolean };
+  icon: IconType;
+  iconBgKey: string;
+  iconColorKey: string;
+  navigateTo: string;
+  subMetrics: SubMetric[];
 }
 
-export const KPICard = ({ label, value, trend, icon: Icon, iconColor }: KPICardProps) => {
+const KPICard = ({ label, value, trend, icon: Icon, iconBgKey, iconColorKey, navigateTo, subMetrics }: KPICardProps) => {
+  const { t } = useTheme();
+  const navigate = useNavigate();
+  const iconBg = (t as any)[iconBgKey] || t.accentBg;
+  const iconColor = (t as any)[iconColorKey] || t.accentText;
+
   return (
-    <div className="bg-white p-5 rounded-xl border border-slate-200 hover:shadow-sm transition-all group">
-      <div className="flex justify-between items-start mb-4">
-        <div className={cn("p-2.5 rounded-lg", iconColor)}>
-          <Icon className="w-5 h-5" />
+    <div
+      onClick={() => navigate(navigateTo)}
+      style={{
+        background: t.bgCard,
+        border: `1px solid ${t.border}`,
+        borderRadius: '14px',
+        padding: '24px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        minHeight: '170px',
+        cursor: 'pointer',
+        transition: 'border-color 0.2s',
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = iconColor; }}
+      onMouseLeave={(e) => { e.currentTarget.style.borderColor = t.border; }}
+    >
+      <div className="flex justify-between items-start">
+        <div
+          className="flex items-center justify-center"
+          style={{
+            width: '42px',
+            height: '42px',
+            borderRadius: '10px',
+            background: iconBg,
+          }}
+        >
+          <Icon size={20} color={iconColor} />
         </div>
-        {trend && (
-          <div className={cn(
-            "flex items-center gap-0.5 text-xs font-semibold px-2 py-1 rounded-full",
-            trend.isUp ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"
-          )}>
-            {trend.isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-            {trend.value}%
-          </div>
-        )}
+        <div
+          className="flex items-center"
+          style={{
+            gap: '3px',
+            fontSize: '12px',
+            fontWeight: 600,
+            padding: '4px 10px',
+            borderRadius: '20px',
+            background: trend.isUp ? t.successBg : t.dangerBg,
+            color: trend.isUp ? t.success : t.danger,
+          }}
+        >
+          {trend.isUp ? <LuArrowUpRight size={14} /> : <LuArrowDownRight size={14} />}
+          {trend.value}%
+        </div>
       </div>
-      <div>
-        <h3 className="text-slate-500 text-xs font-medium uppercase tracking-wider mb-1">{label}</h3>
-        <p className="text-2xl font-bold text-slate-900 tabular-nums tracking-tight">{value}</p>
+      <div style={{ marginTop: '16px' }}>
+        <h3
+          style={{
+            fontSize: '11px',
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            color: t.textMuted,
+            marginBottom: '6px',
+          }}
+        >
+          {label}
+        </h3>
+        <p
+          style={{
+            fontSize: '28px',
+            fontWeight: 700,
+            color: t.text,
+            letterSpacing: '-0.02em',
+            lineHeight: 1,
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
+          {value}
+        </p>
+      </div>
+      <div style={{ display: 'flex', gap: '16px', marginTop: '14px', borderTop: `1px solid ${t.border}`, paddingTop: '12px' }}>
+        {subMetrics.map((sm, i) => (
+          <div key={i} style={{ flex: 1 }}>
+            <div style={{ fontSize: '9px', color: t.textFaint, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px' }}>
+              {sm.label}
+            </div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: t.textSecondary, fontVariantNumeric: 'tabular-nums' }}>
+              {sm.value}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
 };
 
 export const DashboardKPIs = () => {
-  const kpis = [
-    { label: "Muestras Totales", value: "12,842", trend: { value: 12, isUp: true }, icon: FlaskConical, iconColor: "bg-blue-50 text-blue-600" },
-    { label: "Genotipos Completos", value: "8,921", trend: { value: 8, isUp: true }, icon: Dna, iconColor: "bg-indigo-50 text-indigo-600" },
-    { label: "Sistemas ISBT", value: "43", trend: { value: 2, isUp: true }, icon: ShieldCheck, iconColor: "bg-emerald-50 text-emerald-600" },
-    { label: "Precisión Matching", value: "99.98%", trend: { value: 0.1, isUp: true }, icon: Target, iconColor: "bg-blue-50 text-blue-600" },
-    { label: "Secuenciaciones Activas", value: "156", trend: { value: 4, isUp: false }, icon: Activity, iconColor: "bg-amber-50 text-amber-600" },
-    { label: "Búsquedas (7d)", value: "2,410", trend: { value: 18, isUp: true }, icon: Search, iconColor: "bg-slate-50 text-slate-600" },
-    { label: "Personal Activo", value: "84", icon: UserCheck, iconColor: "bg-purple-50 text-purple-600" },
-    { label: "Donantes Registrados", value: "15,200", trend: { value: 5, isUp: true }, icon: Users, iconColor: "bg-sky-50 text-sky-600" },
+  const kpis: KPICardProps[] = [
+    {
+      label: 'Compatibilidad',
+      value: '94.2%',
+      trend: { value: 2.1, isUp: true },
+      icon: LuTarget,
+      iconBgKey: 'accentBg',
+      iconColorKey: 'accentText',
+      navigateTo: '/busqueda',
+      subMetrics: [
+        { label: 'Matches', value: '847' },
+        { label: 'Incomp.', value: '12' },
+      ],
+    },
+    {
+      label: 'Actividad Reciente',
+      value: '1,284',
+      trend: { value: 18, isUp: true },
+      icon: LuActivity,
+      iconBgKey: 'indigoBg',
+      iconColorKey: 'indigo',
+      navigateTo: '/dashboard',
+      subMetrics: [
+        { label: 'Seq. 24h', value: '56' },
+        { label: 'Búsquedas', value: '312' },
+      ],
+    },
+    {
+      label: 'Alertas',
+      value: '7',
+      trend: { value: 3, isUp: false },
+      icon: LuTriangleAlert,
+      iconBgKey: 'warnBg',
+      iconColorKey: 'warn',
+      navigateTo: '/dashboard',
+      subMetrics: [
+        { label: 'QC fallido', value: '2' },
+        { label: 'Por vencer', value: '5' },
+      ],
+    },
+    {
+      label: 'Inventario',
+      value: '12,842',
+      trend: { value: 12, isUp: true },
+      icon: LuFlaskConical,
+      iconBgKey: 'successBg',
+      iconColorKey: 'success',
+      navigateTo: '/expedientes',
+      subMetrics: [
+        { label: 'ISBT', value: '43' },
+        { label: 'QC Pass', value: '98.4%' },
+      ],
+    },
+    {
+      label: 'Rendimiento',
+      value: '23.4',
+      trend: { value: 5, isUp: true },
+      icon: LuChartBar,
+      iconBgKey: 'purpleBg',
+      iconColorKey: 'purple',
+      navigateTo: '/reportes',
+      subMetrics: [
+        { label: 'Seq/Téc.', value: '8.2' },
+        { label: 'T. Prom.', value: '4.1h' },
+      ],
+    },
+    {
+      label: 'Devyser',
+      value: '156',
+      trend: { value: 8, isUp: true },
+      icon: LuMicroscope,
+      iconBgKey: 'skyBg',
+      iconColorKey: 'sky',
+      navigateTo: '/devyser',
+      subMetrics: [
+        { label: 'Pendientes', value: '14' },
+        { label: 'Calidad', value: '99.1%' },
+      ],
+    },
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
       {kpis.map((kpi, index) => (
         <KPICard key={index} {...kpi} />
       ))}
